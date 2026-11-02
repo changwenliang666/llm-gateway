@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.llmgateway.task.ModelTaskMapper">
+
+    <!--
+      新任务插入整行。主键冲突时只更新状态：
+      视频查询或重复写入不能把任务改挂到后一次选中的账号上。
+    -->
+    <insert id="insert">
+        INSERT INTO model_tasks (task_id, model_name, provider_account_id, task_status)
+        VALUES (#{taskId}, #{modelName}, #{accountId}, #{taskStatus}) AS new_row
+        ON DUPLICATE KEY UPDATE task_status = new_row.task_status
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE model_tasks
+        SET task_status = #{taskStatus}
+        WHERE task_id = #{taskId}
+    </update>
+
+    <select id="findAccountId" resultType="java.lang.Integer">
+        SELECT provider_account_id
+        FROM model_tasks
+        WHERE task_id = #{taskId}
+    </select>
+
+    <!-- 列表和计数共用这一段，避免筛选项只加在其中一边。 -->
+    <sql id="taskFilter">
+        <where>
+            <if test="modelName != null">AND t.model_name = #{modelName}</if>
+            <if test="taskStatus != null">AND t.task_status = #{taskStatus}</if>
+            <if test="accountId != null">AND t.provider_account_id = #{accountId}</if>
+            <if test="from != null">AND t.created_time &gt;= #{from}</if>
+            <if test="toExclusive != null">AND t.created_time &lt; #{toExclusive}</if>
+        </where>
+    </sql>
+
+    <select id="page" resultType="com.llmgateway.task.TaskListRow">
+        SELECT t.task_id,
+               t.model_name,
+               t.provider_account_id AS account_id,
+               a.account_name,
+               t.task_status,
+               DATE_FORMAT(t.created_time, '%Y-%m-%dT%H:%i:%s') AS created_time
+        FROM model_tasks t
+        INNER JOIN provider_accounts a ON a.id = t.provider_account_id
+        <include refid="taskFilter"/>
+        ORDER BY t.created_time DESC, t.task_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM model_tasks t
+        <include refid="taskFilter"/>
+    </select>
+
+    <select id="countByStatus" resultType="com.llmgateway.task.TaskStatusCount">
+        SELECT task_status AS status, COUNT(*) AS total
+        FROM model_tasks
+        WHERE created_time &gt;= #{from}
+          AND created_time &lt; #{toExclusive}
+        GROUP BY task_status
+        ORDER BY task_status
+    </select>
+
+    <select id="countByDay" resultType="com.llmgateway.task.TaskDayCount">
+        SELECT DATE_FORMAT(created_time, '%Y-%m-%d') AS day, COUNT(*) AS total
+        FROM model_tasks
+        WHERE created_time &gt;= #{from}
+          AND created_time &lt; #{toExclusive}
+        GROUP BY DATE_FORMAT(created_time, '%Y-%m-%d')
+        ORDER BY day
+    </select>
+
+    <select id="currentDate" resultType="java.time.LocalDate">
+        SELECT CURDATE()
+    </select>
+</mapper>

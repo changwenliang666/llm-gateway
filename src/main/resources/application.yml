@@ -1,0 +1,36 @@
+# 连接地址由 InfrastructureConfig 从环境变量组装。
+# MYSQL_SERVER=host:port，REDIS_SERVER=host 或 host:port。
+# 密码、API Key 只来自环境变量或被 git 忽略的 application-local.yml，不写在本文件。
+spring:
+  application:
+    name: llm-gateway
+  config:
+    import: optional:file:./application-local.yml
+  main:
+    banner-mode: off
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+gateway:
+  # 调用方未传 X-Gateway-Timeout-Ms 时的兜底预算，避免线程被无头请求一直占住。
+  default-timeout-ms: ${GATEWAY_DEFAULT_TIMEOUT_MS:120000}
+  # 基础设施连接超时，不属于业务超时策略。
+  connect-timeout-ms: ${GATEWAY_CONNECT_TIMEOUT_MS:10000}
+  # 管理接口令牌。不配置时 /admin/api 全部 401，/v1 不受影响。
+  admin-token: ${ADMIN_TOKEN:}
+  circuit:
+    failure-threshold: ${GATEWAY_CIRCUIT_FAILURES:5}
+    open-ms: ${GATEWAY_CIRCUIT_OPEN_MS:30000}
+    half-open-max-probes: ${GATEWAY_CIRCUIT_PROBES:1}
+    probe-lease-ms: ${GATEWAY_CIRCUIT_PROBE_LEASE_MS:120000}
+
+logging:
+  level:
+    root: INFO
+    com.llmgateway: INFO
+    # 避免 MyBatis 在调试级别把 api_key 打进 SQL 参数日志。
+    org.mybatis: WARN
+    org.apache.ibatis: WARN

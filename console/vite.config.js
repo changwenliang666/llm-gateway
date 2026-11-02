@@ -1,0 +1,16 @@
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+
+export default defineConfig({
+  base: "/admin/",
+  plugins: [vue()],
+  server: {
+    proxy: {
+      "/admin/api": "http://localhost:8080"
+    }
+  },
+  build: {
+    outDir: "../src/main/resources/static/admin",
+    emptyOutDir: true
+  }
+});

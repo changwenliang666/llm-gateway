@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.llmgateway.routing.ModelCatalogMapper">
+
+    <!-- 包含停用模型，好让调用方得到 404 而不是把它当成从未配置。 -->
+    <select id="selectByName" resultType="com.llmgateway.routing.ModelRow">
+        SELECT id,
+               provider_id,
+               model_name,
+               adapter_name,
+               upstream_model_name,
+               base_url,
+               enabled,
+               load_balance_enabled,
+               rate_limit_enabled,
+               rpm,
+               tpm
+        FROM models
+        WHERE model_name = #{modelName}
+    </select>
+
+    <!--
+      只留下同时满足的候选：链接启用、账号启用、账号属于模型的供应商、Key 启用。
+      排序就是轮询顺序，Java 不再重排。
+    -->
+    <select id="selectCandidates" resultType="com.llmgateway.routing.CandidateRow">
+        SELECT pa.id AS account_id,
+               ak.id AS key_id,
+               ak.api_key
+        FROM model_accounts ma
+                 JOIN provider_accounts pa
+                      ON pa.id = ma.provider_account_id
+                 JOIN account_keys ak
+                      ON ak.provider_account_id = pa.id
+        WHERE ma.model_id = #{modelId}
+          AND ma.enabled = 1
+          AND pa.enabled = 1
+          AND pa.provider_id = #{providerId}
+          AND ak.enabled = 1
+        ORDER BY pa.id ASC, ak.id ASC
+    </select>
+</mapper>

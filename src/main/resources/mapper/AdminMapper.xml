@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.llmgateway.admin.AdminMapper">
+
+    <select id="selectProviders" resultType="com.llmgateway.admin.StoredProvider">
+        SELECT id, provider_name
+        FROM providers
+        ORDER BY id
+    </select>
+
+    <select id="selectProvider" resultType="com.llmgateway.admin.StoredProvider">
+        SELECT id, provider_name
+        FROM providers
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insertProvider" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO providers (provider_name)
+        VALUES (#{providerName})
+    </insert>
+
+    <update id="updateProvider">
+        UPDATE providers
+        SET provider_name = #{providerName}
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectAccounts" resultType="com.llmgateway.admin.StoredAccount">
+        SELECT id, provider_id, account_name, enabled
+        FROM provider_accounts
+        <where>
+            <if test="providerId != null">
+                provider_id = #{providerId}
+            </if>
+        </where>
+        ORDER BY id
+    </select>
+
+    <select id="selectAccount" resultType="com.llmgateway.admin.StoredAccount">
+        SELECT id, provider_id, account_name, enabled
+        FROM provider_accounts
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insertAccount" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO provider_accounts (provider_id, account_name, enabled)
+        VALUES (#{providerId}, #{accountName}, #{enabled})
+    </insert>
+
+    <update id="updateAccount">
+        UPDATE provider_accounts
+        SET account_name = #{accountName},
+            enabled = #{enabled}
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectKeys" resultType="com.llmgateway.admin.StoredKey">
+        SELECT id, provider_account_id, key_name, api_key, enabled
+        FROM account_keys
+        WHERE provider_account_id = #{accountId}
+        ORDER BY id
+    </select>
+
+    <select id="selectKey" resultType="com.llmgateway.admin.StoredKey">
+        SELECT id, provider_account_id, key_name, api_key, enabled
+        FROM account_keys
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insertKey" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO account_keys (provider_account_id, key_name, api_key, enabled)
+        VALUES (#{providerAccountId}, #{keyName}, #{apiKey}, #{enabled})
+    </insert>
+
+    <update id="updateKey">
+        UPDATE account_keys
+        SET key_name = #{row.keyName},
+            enabled = #{row.enabled}
+        <if test="replaceKey">
+            , api_key = #{row.apiKey}
+        </if>
+        WHERE id = #{row.id}
+    </update>
+
+    <sql id="modelColumns">
+        m.id,
+        m.provider_id,
+        p.provider_name,
+        m.model_name,
+        m.adapter_name,
+        m.upstream_model_name,
+        m.base_url,
+        m.enabled,
+        m.load_balance_enabled,
+        m.rate_limit_enabled,
+        m.rpm,
+        m.tpm,
+        m.consumed_tokens
+    </sql>
+
+    <select id="selectModels" resultType="com.llmgateway.admin.StoredModel">
+        SELECT <include refid="modelColumns"/>
+        FROM models m
+                 JOIN providers p ON p.id = m.provider_id
+        ORDER BY m.id
+    </select>
+
+    <select id="selectModel" resultType="com.llmgateway.admin.StoredModel">
+        SELECT <include refid="modelColumns"/>
+        FROM models m
+                 JOIN providers p ON p.id = m.provider_id
+        WHERE m.id = #{id}
+    </select>
+
+    <insert id="insertModel" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO models (provider_id, model_name, adapter_name, upstream_model_name, base_url,
+                            enabled, load_balance_enabled, rate_limit_enabled, rpm, tpm)
+        VALUES (#{providerId}, #{modelName}, #{adapterName}, #{upstreamModelName}, #{baseUrl},
+                #{enabled}, #{loadBalanceEnabled}, #{rateLimitEnabled}, #{rpm}, #{tpm})
+    </insert>
+
+    <update id="updateModel">
+        UPDATE models
+        SET provider_id = #{providerId},
+            model_name = #{modelName},
+            adapter_name = #{adapterName},
+            upstream_model_name = #{upstreamModelName},
+            base_url = #{baseUrl},
+            enabled = #{enabled},
+            load_balance_enabled = #{loadBalanceEnabled},
+            rate_limit_enabled = #{rateLimitEnabled},
+            rpm = #{rpm},
+            tpm = #{tpm}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateInvocation">
+        UPDATE models
+        SET adapter_name = #{adapterName},
+            upstream_model_name = #{upstreamModelName},
+            base_url = #{baseUrl}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateLoadBalance">
+        UPDATE models
+        SET load_balance_enabled = #{enabled}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateRateLimit">
+        UPDATE models
+        SET rate_limit_enabled = #{enabled},
+            rpm = #{rpm},
+            tpm = #{tpm}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteModelAccounts">
+        DELETE FROM model_accounts
+        WHERE model_id = #{modelId}
+    </delete>
+
+    <insert id="insertModelAccount">
+        INSERT INTO model_accounts (model_id, provider_account_id, enabled)
+        VALUES (#{modelId}, #{accountId}, 1)
+    </insert>
+
+    <select id="selectModelAccountIds" resultType="int">
+        SELECT provider_account_id
+        FROM model_accounts
+        WHERE model_id = #{modelId}
+          AND enabled = 1
+        ORDER BY provider_account_id
+    </select>
+</mapper>
